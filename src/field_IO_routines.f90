@@ -2811,6 +2811,7 @@ CONTAINS
         nn=0
         NODE_NUMBER=0
 
+
         ! For elements with collapsed nodes, the node indexes need to be changed
         IF (BASIS%NUMBER_OF_COLLAPSED_XI>0) THEN
     !!$         IF((.NOT.BASIS%COLLAPSED_XI(1).OR.BASIS%COLLAPSED_XI(2).OR.BASIS%COLLAPSED_XI(3)==BASIS_NOT_COLLAPSED)) THEN
@@ -3211,6 +3212,7 @@ CONTAINS
     !Local variables
     INTEGER(INTG) :: scaleIndex, componentIndex, localNumber, scaleFactorCount, nodeIndex
     INTEGER(INTG) :: nodeNumber, derivativeIndex, nv, nk, ny2, firstScaleSet, nx, ny, nz, NodesX, NodesY, NodesZ
+    INTEGER(INTG) :: local_element_nodes(8),global_derivative_index
     TYPE(FIELD_VARIABLE_COMPONENT_TYPE), POINTER :: component
     TYPE(DOMAIN_ELEMENTS_TYPE), POINTER :: domainElements
     TYPE(DOMAIN_NODES_TYPE), POINTER :: domainNodes
@@ -3246,8 +3248,14 @@ CONTAINS
         scaleFactorCount = 0
         basis => domainElements%ELEMENTS( localNumber )%BASIS
 
-        CALL REALLOCATE( scaleBuffer, SUM( basis%NUMBER_OF_DERIVATIVES(1:basis%NUMBER_OF_NODES ) ), &
-          & "Could not allocate scale buffer in IO", ERR, ERROR, *999 )
+        IF(BASIS%DEGENERATE) THEN
+          CALL REALLOCATE( scaleBuffer, BASIS%MAXIMUM_NUMBER_OF_DERIVATIVES*8, &
+            & "Could not allocate scale buffer in IO", ERR, ERROR, *999 )
+        ELSE
+          CALL REALLOCATE( scaleBuffer, SUM( BASIS%NUMBER_OF_DERIVATIVES(1:basis%NUMBER_OF_NODES ) ), &
+            & "Could not allocate scale buffer in IO", ERR, ERROR, *999 )
+        ENDIF
+        scaleBuffer = 0.0_DP
 
         IF( component%FIELD_VARIABLE%FIELD%SCALINGS%SCALING_TYPE /= FIELD_NO_SCALING ) THEN
           CALL DISTRIBUTED_VECTOR_DATA_GET(component%FIELD_VARIABLE%FIELD%SCALINGS%SCALINGS(component% &
@@ -3270,22 +3278,66 @@ CONTAINS
             ENDDO !derivativeIndex
           ENDDO !nodeIndex
         ELSE
-          !This is just a hack, forcing to write out the correct number of scale factors equal to one!!!!
-          NodesX=BASIS%INTERPOLATION_XI(1)+1
-          NodesY=BASIS%INTERPOLATION_XI(2)+1
-          NodesZ=BASIS%INTERPOLATION_XI(3)+1
-          CALL REALLOCATE( scaleBuffer, (NodesX*NodesY*NodesZ), &
-               & "Could not allocate scale buffer in IO", ERR, ERROR, *999 )
-          DO nz=1,NodesZ
-            DO ny=1,NodesY
-              DO nx=1,NodesX
-                scaleFactorCount=scaleFactorCOUNT+1
-                scaleBuffer( scaleFactorCount ) = 1
-              ENDDO
-            ENDDO
-          ENDDO
+          IF(BASIS%COLLAPSED_XI(1)==BASIS_XI_COLLAPSED) THEN
+            IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI0) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI1) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI0) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI1) THEN
+              !Do nothing
+            ENDIF
+          ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_XI_COLLAPSED) THEN
+            IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI0) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI1) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI0) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI1) THEN
+              !Do nothing
+            ENDIF
+          ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_XI_COLLAPSED) THEN
+            IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI0) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI1) THEN
+              local_element_nodes = [1,2,3,4,5,2,6,4]
+              global_derivative_index = GLOBAL_DERIV_S2
+            ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI0) THEN
+              !Do nothing
+            ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI1) THEN
+              !Do nothing
+            ENDIF
+          ENDIF
+          DO nodeIndex = 1, 8
+            nodeNumber = domainElements%ELEMENTS( localNumber )%ELEMENT_NODES( local_element_nodes(nodeIndex) )
+            DO derivativeIndex = 1, BASIS%MAXIMUM_NUMBER_OF_DERIVATIVES
+              scaleFactorCount = scaleFactorCount + 1
+              IF((derivativeIndex>1).AND.(BASIS%NUMBER_OF_DERIVATIVES( local_element_nodes(nodeIndex) ) == 2)) THEN
+                IF (derivativeIndex == global_derivative_index) THEN
+                  nk = domainElements%ELEMENTS( localNumber )%ELEMENT_DERIVATIVES(1, 2, local_element_nodes(nodeIndex) )
+                  nv = domainElements%ELEMENTS( localNumber )%ELEMENT_DERIVATIVES(2, 2, local_element_nodes(nodeIndex) )
+                  ny2 = domainNodes%NODES( nodeNumber )%DERIVATIVES(nk)%DOF_INDEX(nv)
+                  IF( component%FIELD_VARIABLE%FIELD%SCALINGS%SCALING_TYPE /= FIELD_NO_SCALING ) THEN
+                    scaleBuffer( scaleFactorCount ) = SCALE_FACTORS(ny2)
+                  ELSE
+                    scaleBuffer( scaleFactorCount ) = 1
+                  ENDIF
+                ENDIF
+              ELSE
+                nk = domainElements%ELEMENTS( localNumber )%ELEMENT_DERIVATIVES(1, derivativeIndex, local_element_nodes(nodeIndex) )
+                nv = domainElements%ELEMENTS( localNumber )%ELEMENT_DERIVATIVES(2, derivativeIndex, local_element_nodes(nodeIndex) )
+                ny2 = domainNodes%NODES( nodeNumber )%DERIVATIVES(nk)%DOF_INDEX(nv)
+                IF( component%FIELD_VARIABLE%FIELD%SCALINGS%SCALING_TYPE /= FIELD_NO_SCALING ) THEN
+                  scaleBuffer( scaleFactorCount ) = SCALE_FACTORS(ny2)
+                ELSE
+                  scaleBuffer( scaleFactorCount ) = 1
+                ENDIF
+              ENDIF
+            ENDDO !derivativeIndex
+          ENDDO !nodeIndex
         ENDIF
-
         NULLIFY( SCALE_FACTORS )
 
         ERR = FieldExport_ElementNodeScales( sessionHandle, firstScaleSet, scaleFactorCount, C_LOC( scaleBuffer ) )
@@ -3508,6 +3560,40 @@ CONTAINS
       SELECT CASE(BASIS%TYPE)
       CASE(BASIS_LAGRANGE_HERMITE_TP_TYPE)
         USER_ELEMENT_NODES(1:BASIS%NUMBER_OF_NODES)=element%USER_ELEMENT_NODES(1:BASIS%NUMBER_OF_NODES)
+
+        IF(BASIS%COLLAPSED_XI(1)==BASIS_XI_COLLAPSED) THEN
+          IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI0) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI1) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI0) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI1) THEN
+            !Do nothing
+          ENDIF
+        ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_XI_COLLAPSED) THEN
+          IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI0) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI1) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI0) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_COLLAPSED_AT_XI1) THEN
+            !Do nothing
+          ENDIF
+        ELSE IF(BASIS%COLLAPSED_XI(3)==BASIS_XI_COLLAPSED) THEN
+          IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI0) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(1)==BASIS_COLLAPSED_AT_XI1) THEN
+            USER_ELEMENT_NODES(8) = USER_ELEMENT_NODES(4)
+            USER_ELEMENT_NODES(7) = USER_ELEMENT_NODES(6)
+            USER_ELEMENT_NODES(6) = USER_ELEMENT_NODES(2)
+          ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI0) THEN
+            !Do nothing
+          ELSE IF(BASIS%COLLAPSED_XI(2)==BASIS_COLLAPSED_AT_XI1) THEN
+            !Do nothing
+          ENDIF
+        ENDIF
       CASE(BASIS_SIMPLEX_TYPE)
         SELECT CASE(BASIS%NUMBER_OF_XI)
         CASE(1)
@@ -3582,7 +3668,17 @@ CONTAINS
       CASE DEFAULT
         CALL FLAG_ERROR("Not implemented.",ERR,ERROR,*999)
       END SELECT
-      ERR = FieldExport_ElementNodeIndices( sessionHandle, BASIS%NUMBER_OF_NODES, C_LOC( USER_ELEMENT_NODES ) )
+
+      IF(BASIS%DEGENERATE) THEN
+        SELECT CASE(BASIS%TYPE)
+        CASE(BASIS_LAGRANGE_HERMITE_TP_TYPE)
+          ERR = FieldExport_ElementNodeIndices( sessionHandle, 8, C_LOC( USER_ELEMENT_NODES ) )
+        CASE DEFAULT
+          !Do nothing
+        END SELECT
+      ELSE
+        ERR = FieldExport_ElementNodeIndices( sessionHandle, BASIS%NUMBER_OF_NODES, C_LOC( USER_ELEMENT_NODES ) )
+      ENDIF
       IF(ERR/=0) THEN
         CALL FLAG_ERROR( "Cannot write node indices to file", ERR, ERROR,*999 )
       ENDIF
@@ -3727,7 +3823,12 @@ CONTAINS
               !checking whether they have the same basis
               IF(DOMAIN_ELEMENTS1%ELEMENTS(local_number1)%BASIS%GLOBAL_NUMBER/=&
                 &DOMAIN_ELEMENTS2%ELEMENTS(local_number2)%BASIS%GLOBAL_NUMBER) THEN
-                SAME_ELEMENT_INFO=.FALSE.
+                IF(DOMAIN_ELEMENTS1%ELEMENTS(local_number1)%BASIS%DEGENERATE .OR. &
+                  & DOMAIN_ELEMENTS2%ELEMENTS(local_number2)%BASIS%DEGENERATE) THEN
+                  !Do nothing
+                ELSE
+                  SAME_ELEMENT_INFO=.FALSE.
+                ENDIF
                 EXIT
               ENDIF  !DOMAIN_ELEMENTS1
 
@@ -5250,6 +5351,7 @@ CONTAINS
         !Output the dofs, sorted according to derivative index
         !Loop over versions outside of derivatives, as cmgui treats versions differently
         NUM_OF_NODAL_DEV = 0
+        NODAL_BUFFER = 0
         DO version_idx=1, NUMBER_VERSIONS
           DO dev_idx=1, SIZE(DERIVATIVE_INDEXES)
             IF( DERIVATIVE_INDEXES( dev_idx ) == -1 ) THEN
@@ -5283,13 +5385,23 @@ CONTAINS
             CASE DEFAULT
               CALL FLAG_ERROR("Not implemented.",ERR,ERROR,*999)
             END SELECT
-            NODAL_BUFFER( NUM_OF_NODAL_DEV ) = VALUE
+
+            IF (DOMAIN_NODES%NODES(local_number)%NUMBER_OF_DERIVATIVES==2) THEN ! Collapsed nodes present.  
+              NODAL_BUFFER( DOMAIN_NODES%NODES(local_number)%DERIVATIVES(NUM_OF_NODAL_DEV)%GLOBAL_DERIVATIVE_INDEX ) = VALUE
+            ELSE
+              NODAL_BUFFER( NUM_OF_NODAL_DEV ) = VALUE
+            ENDIF
           ENDDO !dev_idx
         ENDDO !verion_idx
 
         CALL GROW_ARRAY( TOTAL_NODAL_BUFFER, NUM_OF_NODAL_DEV, "Insufficient memory during I/O", ERR, ERROR, *999 )
         TOTAL_NODAL_BUFFER(total_nodal_values+1:total_nodal_values+NUM_OF_NODAL_DEV) = NODAL_BUFFER(1:NUM_OF_NODAL_DEV)
         total_nodal_values = total_nodal_values + NUM_OF_NODAL_DEV
+
+        !If more than one nodal derivative then assume element has collapsed nodes
+        IF(DOMAIN_NODES%NODES(local_number)%NUMBER_OF_DERIVATIVES > 1) THEN
+          NUM_OF_NODAL_DEV = MAX_NUM_OF_NODAL_DERIVATIVES
+        ENDIF
 
         !TEMPORARY
         ERR = FieldExport_NodeValues( sessionHandle, DOMAIN_NODES%NODES(local_number)%USER_NUMBER, NUM_OF_NODAL_DEV, &
