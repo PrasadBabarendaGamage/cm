@@ -3314,13 +3314,6 @@ CONTAINS
               CASE(PROBLEM_LINEAR_ELASTICITY_TYPE,PROBLEM_FINITE_ELASTICITY_TYPE)
                 !Do nothing???
               CASE(PROBLEM_LINEAR_ELASTICITY_CONTACT_TYPE,PROBLEM_FINITE_ELASTICITY_CONTACT_TYPE)
-                !Output meshes at iterations
-                IF(solver%SOLVE_TYPE==SOLVER_NONLINEAR_TYPE) THEN
-                  nonlinearSolver=>solver%NONLINEAR_SOLVER
-                  IF(ASSOCIATED(nonlinearSolver)) THEN
-                    CALL Problem_SolverNewtonFieldsOutput(solver,iterationNumber,err,error,*999)
-                  ENDIF
-                ENDIF
                 SELECT CASE(problem%SUBTYPE)
                 CASE(PROBLEM_LE_CONTACT_TRANSFORM_SUBTYPE,PROBLEM_FE_CONTACT_TRANSFORM_SUBTYPE) !Reproject at iteration 0 before the nonlinear solve to update xi location since the field is transformed.
                   IF(iterationNumber==0) THEN
@@ -3370,6 +3363,13 @@ CONTAINS
                     CALL FLAG_ERROR("Nonlinear solver equations is not associated.",err,error,*999)
                   ENDIF
                 ENDIF !Reproject
+                !Output meshes at iterations
+                IF(solver%SOLVE_TYPE==SOLVER_NONLINEAR_TYPE) THEN
+                  nonlinearSolver=>solver%NONLINEAR_SOLVER
+                  IF(ASSOCIATED(nonlinearSolver)) THEN
+                    CALL Problem_SolverNewtonFieldsOutput(solver,iterationNumber,err,error,*999)
+                  ENDIF
+                ENDIF
               CASE DEFAULT
                 localError="The problem type of "//TRIM(NUMBER_TO_VSTRING(problem%TYPE,"*",err,error))//" &
                   & is invalid."
@@ -3569,7 +3569,7 @@ CONTAINS
                   & elementLineFaceNumber)
                 CALL FIELD_INTERPOLATION_PARAMETERS_FACE_GET(FIELD_VALUES_SET_TYPE,coupledMeshFaceLineNumber, &
                   & interpolationParameters(FIELD_U_VARIABLE_TYPE)%PTR,err,error,*999,FIELD_GEOMETRIC_COMPONENTS_TYPE)
-                CALL FIELD_INTERPOLATE_XI(FIRST_PART_DERIV,pointsConnectivity%pointsConnectivity(globalDataPointNumber, &
+                CALL FIELD_INTERPOLATE_XI(NO_PART_DERIV,pointsConnectivity%pointsConnectivity(globalDataPointNumber, &
                   & coupledMeshIdx)%reducedXi(:),interpolatedPoint,err,error,*999,FIELD_GEOMETRIC_COMPONENTS_TYPE) !Interpolate contact data points on each surface
                 DO component=1,3
                   WRITE(IUNIT,'(1X,3E25.15)') interpolatedPoint%VALUES(component,NO_PART_DERIV) - &
