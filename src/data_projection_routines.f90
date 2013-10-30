@@ -3188,7 +3188,7 @@ CONTAINS
             & DATA_POINT_GLOBAL_NUMBER,ERR,ERROR,*999)
           PROJECTION_DISTANCE=DATA_PROJECTION%DATA_PROJECTION_RESULTS(DATA_POINT_GLOBAL_NUMBER)%DISTANCE
         ELSE
-          CALL FLAG_ERROR("Data projection have not been projected.",ERR,ERROR,*999)
+          CALL FLAG_ERROR("Datapoints have not been projected.",ERR,ERROR,*999)
         ENDIF
       ELSE
         CALL FLAG_ERROR("Data projection have not been finished.",ERR,ERROR,*999)
@@ -3358,7 +3358,7 @@ CONTAINS
             & DATA_POINT_GLOBAL_NUMBER,ERR,ERROR,*999)
           PROJECTION_ELEMENT_NUMBER=DATA_PROJECTION%DATA_PROJECTION_RESULTS(DATA_POINT_GLOBAL_NUMBER)%ELEMENT_NUMBER
         ELSE
-          CALL FLAG_ERROR("Data projection have not been projected.",ERR,ERROR,*999)  
+          CALL FLAG_ERROR("Datapoints have not been projected.",ERR,ERROR,*999)  
         ENDIF    
       ELSE
         CALL FLAG_ERROR("Data projection have not been finished.",ERR,ERROR,*999)
@@ -3407,7 +3407,7 @@ CONTAINS
               & ERR,ERROR,*999)
           ENDIF
         ELSE
-          CALL FLAG_ERROR("Data projection have not been projected.",ERR,ERROR,*999)  
+          CALL FLAG_ERROR("Datapoints have not been projected.",ERR,ERROR,*999)  
         ENDIF    
       ELSE
         CALL FLAG_ERROR("Data projection have not been finished.",ERR,ERROR,*999)
@@ -3456,7 +3456,7 @@ CONTAINS
               & ERR,ERROR,*999)
           ENDIF
         ELSE
-          CALL FLAG_ERROR("Data projection have not been projected.",ERR,ERROR,*999)  
+          CALL FLAG_ERROR("Datapoints have not been projected.",ERR,ERROR,*999)  
         ENDIF    
       ELSE
         CALL FLAG_ERROR("Data projection have not been finished.",ERR,ERROR,*999)
@@ -3498,7 +3498,7 @@ CONTAINS
             & DATA_POINT_GLOBAL_NUMBER,ERR,ERROR,*999)
           PROJECTION_EXIT_TAG=DATA_PROJECTION%DATA_PROJECTION_RESULTS(DATA_POINT_GLOBAL_NUMBER)%EXIT_TAG
         ELSE
-          CALL FLAG_ERROR("Data projection have not been projected.",ERR,ERROR,*999)  
+          CALL FLAG_ERROR("Datapoints have not been projected.",ERR,ERROR,*999)  
         ENDIF
       ELSE
         CALL FLAG_ERROR("Data projection have not been finished.",ERR,ERROR,*999)
@@ -3548,7 +3548,7 @@ CONTAINS
               & "." ,ERR,ERROR,*999)
           ENDIF
         ELSE
-          CALL FLAG_ERROR("Data projection have not been projected.",ERR,ERROR,*999)
+          CALL FLAG_ERROR("Datapoints have not been projected.",ERR,ERROR,*999)
         ENDIF   
       ELSE
         CALL FLAG_ERROR("Data projection have not been finished.",ERR,ERROR,*999)
@@ -3599,7 +3599,7 @@ CONTAINS
               & "." ,ERR,ERROR,*999)
           ENDIF
         ELSE
-          CALL FLAG_ERROR("Data projection have not been projected.",ERR,ERROR,*999)
+          CALL FLAG_ERROR("Datapoints have not been projected.",ERR,ERROR,*999)
         ENDIF   
       ELSE
         CALL FLAG_ERROR("Data projection have not been finished.",ERR,ERROR,*999)
