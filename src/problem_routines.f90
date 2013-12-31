@@ -2610,7 +2610,7 @@ CONTAINS
                       residualValue=-coefficient*rigidBodyMatrix(fieldComponent,rigidBodyDofCompIdx)* &
                         & contactPointMetrics%normal(fieldComponent)*contactPointMetrics%contactForce
                       CALL DISTRIBUTED_VECTOR_VALUES_ADD(nonlinearMatrices%RESIDUAL,dofIdx, &
-                        & ,err,error,*999)
+                        & residualValue,err,error,*999)
                     ENDDO !dofIdx
                   ENDDO !fieldComponent
                 ENDIF !inContact
